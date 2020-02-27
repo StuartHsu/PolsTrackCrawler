@@ -4,16 +4,16 @@ const mysql = require("./util/mysqlcon.js");
 const db = require('./model/savenews');
 const request = require('request');
 const cheerio = require('cheerio');
-const runSchedule = require('./crawler/schedule.js');
+const runSchedule = require('./schedule/schedule.js');
 
 const PORT = process.env.PORT || 3001;
 
 const crawler = {
-  ftv: require('./crawler/ftv'),
-  ebc: require('./crawler/ebc'),
-  ett: require('./crawler/ett'),
-  cna: require('./crawler/cna'),
-  tvbs: require('./crawler/tvbs')
+  ftv: require('./model/news_source/ftv'),
+  ebc: require('./model/news_source/ebc'),
+  ett: require('./model/news_source/ett'),
+  cna: require('./model/news_source/cna'),
+  tvbs: require('./model/news_source/tvbs')
 }
 
 const app = express();
@@ -37,7 +37,7 @@ app.listen(3001, async ()=>{
 	console.log("Crawler listening");
   let count = 1;
 
-	runSchedule(async function() {
+	runSchedule.crawler(async function() {
     console.log("執行第 " + count + " 次。");
 
     let newsList = [
