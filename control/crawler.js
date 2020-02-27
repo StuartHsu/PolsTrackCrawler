@@ -6,11 +6,11 @@ const request = require('request');
 const cheerio = require('cheerio');
 
 const crawler = {
-  ftv: require('../crawler/ftv'),
-  ebc: require('../crawler/ebc'),
-  ett: require('../crawler/ett'),
-  cna: require('../crawler/cna'),
-  tvbs: require('../crawler/tvbs')
+  ftv: require('../model/news_source/ftv'),
+  ebc: require('../model/news_source/ebc'),
+  ett: require('../model/news_source/ett'),
+  cna: require('../model/news_source/cna'),
+  tvbs: require('../model/news_source/tvbs')
 }
 
 
