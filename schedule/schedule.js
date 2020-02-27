@@ -25,7 +25,7 @@ module.exports = {
   tag: function(cb) {
     // cron 風格的配置：
     // schedule.scheduleJob('0 17 */3 * * *', function () {
-    schedule.scheduleJob('0 3 * * * *', function () {
+    schedule.scheduleJob('0 25 */3 * * *', function () {
       // console.log('定時任務執行一次');
       console.log("新聞標籤更新:" + new Date());
       cb && cb();
