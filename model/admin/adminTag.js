@@ -2,133 +2,124 @@ const mysql = require("../../util/mysqlcon.js");
 const promiseSql = require("../../util/promiseSql.js");
 const nodejieba = require('nodejieba');
 const fs = require("fs");
+const errorLog = require('../../util/errorRecord.js');
 
 nodejieba.load({userDict: './util/dict.txt'});
 
 module.exports =
 {
-  seg: function(start, end)
+  seg: async function(start, end)
   {
-    return new Promise(async function(resolve, reject)
+    try
     {
-      try
-      {
-        let sql = "SELECT content FROM news WHERE pubTime > ? AND pubTime < ?;";
-        let results = await promiseSql.query(sql, [start, end]);
-        let totalCount = results.length;
+      const sql = "SELECT content FROM news WHERE pubTime > ? AND pubTime < ?;";
+      const results = await promiseSql.query(sql, [start, end]);
+      const totalCount = results.length;
 
-        for (let j = 0; j < totalCount; j++)
+      for (let j = 0; j < totalCount; j++)
+      {
+        console.log("處理中：" + j + "/" + totalCount);
+        const jieba = nodejieba.tag(results[j].content);
+        for (let i = 0; i < jieba.length; i++)
         {
-          console.log("處理中：" + j + "/" + totalCount);
-          let jieba = nodejieba.tag(results[j].content);
-          for (let i = 0; i < jieba.length; i++)
+          if (jieba[i].tag === "N")
           {
-            if (jieba[i].tag === "N")
+            const data =
             {
-              let data =
-              {
-                name: jieba[i].word,
-                type: jieba[i].tag,
-                count: 1
-              }
-              await saveSegmentationResult(data);
+              name: jieba[i].word,
+              type: jieba[i].tag,
+              count: 1
             }
+            await saveSegmentationResult(data);
           }
         }
-        console.log("斷詞處理完成");
+      }
+      console.log("斷詞處理完成");
 
-        resolve("Segmentation done");
-      }
-      catch(error)
-      {
-        reject(error);
-      }
-    });
-  },
-  get: function()
-  {
-    return new Promise(async function(resolve, reject)
+      return ("Segmentation done");
+    }
+    catch(error)
     {
-      let sql = `SELECT * FROM tagverify WHERE status is null AND count > ? ORDER BY count DESC;`;
-      let count = 20;
+      errorLog.errorMessage("Segmentation error: " + error);
+      return error;
+    }
+  },
+  get: async function()
+  {
+    const sql = `SELECT * FROM tagverify WHERE status is null AND count > ? ORDER BY count DESC;`;
+    const count = 20;
 
-      try
+    try
+    {
+      const results = await promiseSql.query(sql, count);
+      let data = [];
+      const totalCount = results.length;
+
+      console.log("待處理標籤數量：" + totalCount);
+      for (let i = 0; i < totalCount; i++)
       {
-        let results = await promiseSql.query(sql, count);
-        let data = [];
-        let totalCount = results.length;
-
-        console.log("待處理標籤數量：" + totalCount);
-        for (let i = 0; i < totalCount; i++)
+        const body =
         {
-          let body =
-          {
-            tagName: results[i].name,
-            count: results[i].count
-          }
-          data.push(body);
+          tagName: results[i].name,
+          count: results[i].count
         }
+        data.push(body);
+      }
 
-        resolve(data);
-      }
-      catch(error)
-      {
-        reject(error);
-      }
-    });
+      return data;
+    }
+    catch(error)
+    {
+      return error;
+    }
   },
   updateDic: function(updateData)
   {
-    return new Promise(function(resolve, reject)
+    for (let i = 0; i < updateData.length; i++)
     {
-      for (let i = 0; i < updateData.length; i++)
+      if (updateData[i].inputTag)
       {
-        if (updateData[i].inputTag)
-        {
-          let newTag = `${updateData[i].tagName} 1 ${updateData[i].inputTag}\n`;
+        const newTag = `${updateData[i].tagName} 1 ${updateData[i].inputTag}\n`;
 
-          fs.appendFile('./util/dict.txt', newTag, (err) =>
+        fs.appendFile('./util/dict.txt', newTag, (err) =>
+        {
+          if (err)
           {
-            if (err)
-            {
-              reject(err);
-            }
+            errorLog.errorMessage("updateDic error: " + err);
+            return err;
+          }
 
-            resolve("Update dict.txt ok");
-          });
-        }
-        else
-        {
-          resolve("No need to update");
-        }
+          return ("Update dict.txt ok");
+        });
       }
-    });
-  },
-  updateDB: function(updateData)
-  {
-    return new Promise(async function(resolve, reject)
-    {
-      let newTag = {};
-
-      for (let i = 0; i < updateData.length; i++)
+      else
       {
-        newTag.name = updateData[i].tagName;
-
-        if (updateData[i].inputTag)
-        {
-          newTag.type = updateData[i].inputTag;
-          newTag.status = "Done";
-        }
-        else
-        {
-          newTag.type = "N";
-          newTag.status = "Unused";
-        }
-
-        await updateTagStatus(newTag);
+        return ("No need to update");
       }
-      resolve("All tag status update ok");
-    });
+    }
+  },
+  updateDB: async function(updateData)
+  {
+    const newTag = {};
+
+    for (let i = 0; i < updateData.length; i++)
+    {
+      newTag.name = updateData[i].tagName;
+
+      if (updateData[i].inputTag)
+      {
+        newTag.type = updateData[i].inputTag;
+        newTag.status = "Done";
+      }
+      else
+      {
+        newTag.type = "N";
+        newTag.status = "Unused";
+      }
+
+      await updateTagStatus(newTag);
+    }
+    return ("All tag status update ok");
   }
 }
 
@@ -142,12 +133,13 @@ function saveSegmentationResult(data)
       {
         if (error)
         {
+          errorLog.errorMessage("Transaction error: " + error);
     			reject("Transaction Error: " + error);
     		}
 
         try
         {
-          let checkResult = await promiseSql.query("SELECT * FROM tagverify WHERE name = ?", data.name);
+          const checkResult = await promiseSql.query("SELECT * FROM tagverify WHERE name = ?", data.name);
 
           if (checkResult.length < 1)
           {
@@ -170,6 +162,7 @@ function saveSegmentationResult(data)
           {
             connection.release();
 
+            errorLog.errorMessage("Database Segmentation error: " + error);
             reject("Database Segmentation Error: " + error);
           });
         }
@@ -178,21 +171,19 @@ function saveSegmentationResult(data)
   });
 }
 
-function updateTagStatus(newTag)
+async function updateTagStatus(newTag)
 {
-  return new Promise(async function(resolve, reject)
+  const sql = `UPDATE tagverify SET type = ?, status = ? WHERE name = ?;`;
+
+  try
   {
-    let sql = `UPDATE tagverify SET type = ?, status = ? WHERE name = ?;`;
+    await promiseSql.query(sql, [newTag.type, newTag.status, newTag.name]);
 
-    try
-    {
-      let data = await promiseSql.query(sql, [newTag.type, newTag.status, newTag.name]);
-
-      resolve()
-    }
-    catch(error)
-    {
-      reject(error);
-    }
-  });
+    return;
+  }
+  catch(error)
+  {
+    errorLog.errorMessage("updateTagStatus error: " + error);
+    return error;
+  }
 }

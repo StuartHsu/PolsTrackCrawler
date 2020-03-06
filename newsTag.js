@@ -1,7 +1,5 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const mysql = require("./util/mysqlcon.js");
-const db = require('./model/savenews');
 const runSchedule = require('./schedule/schedule.js');
 
 const adminTag = require('./model/admin/adminTag');
@@ -15,27 +13,27 @@ const app = express();
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(bodyParser.json());
 
-app.use((req, res, next) => {
+app.use((req, res, next) =>
+{
   res.status(404).send("Sorry can't find that!");
 });
-app.use(function(err, req, res, next) {
+
+app.use(function(err, req, res, next)
+{
   console.error(err.stack);
-  res.status(500).send('Something Error!');
+  res.status(500).send('Server Has Something Error!');
 });
 
-// app.listen(3002, () => {
-//   console.log(`Server running on port ${PORT}`);
-// });
 
-app.listen(3002, async ()=>{
+app.listen(3002, async () =>
+{
   console.log(`Server running on port ${PORT}`);
 
-  runSchedule.tag(async function() {
-
-    let today = dateForm(new Date()); // YYYY/MM/DD
-    // let beginDay = startDayForm(today, 14);
-
-    let period = {
+  runSchedule.tag(async function()
+  {
+    const today = dateForm(new Date()); // YYYY/MM/DD
+    let period =
+    {
       start: "",
       end: ""
     }
@@ -43,45 +41,61 @@ app.listen(3002, async ()=>{
     // 1. 執行新聞斷詞
     period.start = startDayForm(today, 2) + " 00:00";
     period.end = today + " 23:59";
-    await adminTag.seg(period.start, period.end).catch(err => {
-      console.log("Seg err");
-    });
+
+    await adminTag.seg(period.start, period.end)
+    .catch(err =>
+      {
+        console.log("Seg err");
+      });
     console.log("Seg DONE");
 
-    // 4-2. Tag count refresh (DB: filterCount) All
-    await tagFreq.getPeriodCountAll2(today).catch(err => {
-      console.log("Tag count all err");
-    });
-    console.log("Tag count all DONE");
+    // 4-2. Tag count refresh (DB: filterCount) All (for self check)
+    // await tagFreq.getTagPeriodCount(null, today)
+    // .catch(err =>
+    //   {
+    //     console.log("Tag count all err");
+    //   });
+    // console.log("Tag count all DONE");
 
     // 4-1. Tag count refresh (DB: filterCount)
     period.start = startDayForm(today, 14) + " 00:00";
     period.end = today + " 23:59";
-    await tagFreq.getPeriodCount(period.start, period.end).catch(err => {
-      console.log("Tag count 14 days err");
-    });
+
+    await tagFreq.getTagPeriodCount(period.start, period.end)
+    .catch(err =>
+      {
+        console.log("Tag count 14 days err");
+      });
     console.log("Tag count 14 days DONE");
 
     // 5. NLP training
     period.start = startDayForm(today, 2) + " 00:00";
     period.end = today + " 23:59";
-    let results = await nlp.train(period.start, period.end).catch(err => {
-      console.log("NLP training err");
-    });
+
+    await nlp.train(period.start, period.end)
+    .catch(err =>
+      {
+        console.log("NLP training err");
+      });
     console.log("NLP training DONE");
 
     // 6. NLP process
     period.start = startDayForm(today, 2) + " 00:00";
     period.end = today + " 23:59";
-    await nlp.process(period.start, period.end).catch(err => {
-      console.log("NLP process err");
-    });
+
+    await nlp.process(period.start, period.end)
+    .catch(err =>
+      {
+        console.log("NLP process err");
+      });
     console.log("NLP process DONE");
 
     // 7. News get tag
-    await newsGetTag.getTag().catch(err => {
-      console.log("News get tag err");
-    });
+    await newsGetTag.getTag(period.start, period.end)
+    .catch(err =>
+      {
+        console.log("News get tag err");
+      });
     console.log("News get tag DONE");
 
     console.log("ALL FINISHED!");
@@ -89,8 +103,9 @@ app.listen(3002, async ()=>{
 });
 
 
-function dateForm(date) {
-  var year = date.getFullYear();
+function dateForm(date)
+{
+  const year = date.getFullYear();
   var month = date.getMonth() + 1;
   var day = date.getDate();
 
@@ -100,9 +115,10 @@ function dateForm(date) {
   return year + '/' + month + '/' + day;
 }
 
-function startDayForm(today, days) {
+function startDayForm(today, days)
+{
   today = new Date(today);
-  var startDay = new Date(today.setDate(today.getDate() - days));
+  const startDay = new Date(today.setDate(today.getDate() - days));
 
   return dateForm(startDay);
 }

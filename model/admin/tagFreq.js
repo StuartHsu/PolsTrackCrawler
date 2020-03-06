@@ -1,68 +1,67 @@
 const mysql = require("../../util/mysqlcon.js");
 const promiseSql = require("../../util/promiseSql.js");
 const nodejieba = require('nodejieba');
+const errorLog = require('../../util/errorRecord.js');
 
 nodejieba.load({userDict: './util/dict.txt'});
 
 module.exports =
 {
-  getTagPeriodCount: function(start, end)
+  getTagPeriodCount: async function(start, end)
   {
-    return new Promise(async function(resolve, reject)
+    let sql;
+    let timeSet;
+
+    try
     {
-      let sql;
-      let timeSet;
+      await clearCount();
 
-      try
+      if (start)
       {
-        await clearCount();
+        sql = "SELECT content FROM news WHERE pubTime > ? AND pubTime < ?;";
+        timeSet = [start, end];
+      }
+      else
+      {
+        sql = "SELECT content FROM news WHERE pubTime < ?;";
+        timeSet = [end];
+      }
 
-        if (start)
+      const result = await promiseSql.query(sql, timeSet);
+      const totalCount = result.length;
+
+      for (let i = 0; i < totalCount; i++)
+      {
+        console.log("處理中：" + i + "/" + totalCount);
+        const jieba = nodejieba.tag(result[i].content);
+        const jiebaTotalCount = jieba.length;
+
+        for (let j = 0; j < jiebaTotalCount; j++)
         {
-          sql = "SELECT content FROM news WHERE pubTime > ? AND pubTime < ?;";
-          timeSet = [start, end];
-        }
-        else
-        {
-          sql = "SELECT content FROM news WHERE pubTime < ?;";
-          timeSet = [end];
-        }
-
-        let result = await promiseSql.query(sql, timeSet);
-        let totalCount = result.length;
-
-        for (let i = 0; i < totalCount; i++)
-        {
-          console.log("處理中：" + i + "/" + totalCount);
-          let jieba = nodejieba.tag(result[i].content);
-          let jiebaTotalCount = jieba.length;
-
-          for (let j = 0; j < jiebaTotalCount; j++)
+          if (jieba[j].tag === "NRP" || jieba[j].tag === "NI")
           {
-            if (jieba[j].tag === "NRP" || jieba[j].tag === "NI")
+            const data =
             {
-              let data =
-              {
-                name: jieba[j].word,
-                type: jieba[j].tag,
-                count: 1,
-                parent_name: jieba[j].word,
-                parent_id: 0
-              }
-
-              await updateTagCount(data);
+              name: jieba[j].word,
+              type: jieba[j].tag,
+              count: 1,
+              parent_name: jieba[j].word,
+              parent_id: 0
             }
+
+            await updateTagCount(data);
           }
         }
+      }
 
-        console.log("處理完成");
-        resolve("All tags update!");
-      }
-      catch(error)
-      {
-        reject(error);
-      }
-    });
+      console.log("處理完成");
+      return ("All tags update!");
+    }
+    catch(error)
+    {
+      errorLog.errorMessage("getTagPeriodCount error: " + error);
+      return error;
+    }
   }
 }
 
@@ -77,17 +76,18 @@ function updateTagCount(data)
       {
         if (error)
         {
+          errorLog.errorMessage("Transaction error: " + error);
     			reject("Transaction Error: " + error);
     		}
 
         try
         {
-          let checkResult = await promiseSql.query("SELECT * FROM filtercount WHERE name = ?;", data.name);
+          const checkResult = await promiseSql.query("SELECT * FROM filtercount WHERE name = ?;", data.name);
 
           if (checkResult.length < 1)
           {
-            let insertSql = "INSERT INTO filtercount SET ?;";
-            let updateParentIdSql = "UPDATE filtercount SET parent_id = id WHERE name = ?;";
+            const insertSql = "INSERT INTO filtercount SET ?;";
+            const updateParentIdSql = "UPDATE filtercount SET parent_id = id WHERE name = ?;";
 
             await promiseSql.query(insertSql, data);
             await promiseSql.query(updateParentIdSql, data.name);
@@ -97,7 +97,7 @@ function updateTagCount(data)
           }
           else
           {
-            let updateCountSql = "UPDATE filtercount SET count = count + 1 WHERE name = ?;";
+            const updateCountSql = "UPDATE filtercount SET count = count + 1 WHERE name = ?;";
 
             await promiseSql.query(updateCountSql, data.name);
             await promiseSql.commit(connection);
@@ -111,6 +111,7 @@ function updateTagCount(data)
           {
             connection.release();
 
+            errorLog.errorMessage("Database TagCount error: " + error);
             reject("Database TagCount Error: " + error);
           });
         }
@@ -119,21 +120,19 @@ function updateTagCount(data)
   });
 }
 
-function clearCount()
+async function clearCount()
 {
-  return new Promise(async function(resolve, reject)
+  const sql = 'UPDATE filtercount SET count = 0;';
+
+  try
   {
-    let sql = ' filtercount SET count = 0;';
+    await promiseSql.query(sql, null);
 
-    try
-    {
-      await promiseSql.query(sql, null);
-
-      resolve();
-    }
-    catch(error)
-    {
-      reject(error);
-    }
-  });
+    return;
+  }
+  catch(error)
+  {
+    errorLog.errorMessage("clearCount error: " + error);
+    return error;
+  }
 }

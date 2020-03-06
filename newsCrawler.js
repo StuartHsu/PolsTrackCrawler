@@ -1,6 +1,5 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const mysql = require("./util/mysqlcon.js");
 const db = require('./model/savenews');
 const runSchedule = require('./schedule/schedule.js');
 const fs = require("fs");
