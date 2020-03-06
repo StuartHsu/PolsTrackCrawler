@@ -14,7 +14,7 @@ module.exports =
   },
   tag: function(cb)
   {
-    schedule.scheduleJob('0 35 * * * *', function ()
+    schedule.scheduleJob('0 25 */3 * * *', function ()
     {
       console.log("新聞標籤更新:" + new Date());
 
