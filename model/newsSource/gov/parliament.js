@@ -1,7 +1,7 @@
 const XLSX = require('xlsx');
 const mysql = require("../../util/mysqlcon.js");
 
-const workbook = XLSX.readFile('./polList.xlsx'); // 開啟檔案 (工作表)
+// const workbook = XLSX.readFile('./polList.xlsx'); // 開啟檔案 (工作表)
 const sheetNames = workbook.SheetNames;  // 頁面陣列
 const sheet = workbook.Sheets[sheetNames[4]]; // 取用頁面
 
