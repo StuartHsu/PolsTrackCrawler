@@ -1,19 +1,18 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const mysql = require("./util/mysqlcon.js");
 const db = require('./model/savenews');
-const request = require('request');
-const cheerio = require('cheerio');
 const runSchedule = require('./schedule/schedule.js');
+const fs = require("fs");
 
 const PORT = process.env.PORT || 3001;
 
-const crawler = {
-  ftv: require('./model/news_source/ftv'),
-  ebc: require('./model/news_source/ebc'),
-  ett: require('./model/news_source/ett'),
-  cna: require('./model/news_source/cna'),
-  tvbs: require('./model/news_source/tvbs')
+const crawler =
+{
+  ftv: require('./model/newsSource/ftv'),
+  ebc: require('./model/newsSource/ebc'),
+  ett: require('./model/newsSource/ett'),
+  cna: require('./model/newsSource/cna'),
+  tvbs: require('./model/newsSource/tvbs')
 }
 
 const app = express();
@@ -29,52 +28,65 @@ app.use(function(err, req, res, next) {
   res.status(500).send('Something Error!');
 });
 
-// app.listen(3001, () => {
-//   console.log(`Server running on port ${PORT}`);
-// });
-
-app.listen(3001, async ()=>{
+app.listen(3001, async ()=>
+{
 	console.log("Crawler listening");
   let count = 1;
 
-	runSchedule.crawler(async function() {
+	runSchedule.crawler(async function()
+  {
     console.log("執行第 " + count + " 次。");
 
-    let newsList = [
+    const newsList =
+    [
       crawler.ftv.get({Cate: 'POL', Page: 1, Sp: 200}),
       crawler.ebc.get(),
       crawler.ett.get(),
       crawler.cna.get(),
       crawler.tvbs.get()
     ];
-    let name = [
+    const name =
+    [
       'ftv',
       'ebc',
       'ett',
       'cna',
       'tvbs'
     ]
-    for(let i = 0; i < newsList.length; i++) {
-      await newsList[i].then(async resp => {
-        if(resp.length > 0) {
+
+    for (let i = 0; i < newsList.length; i++)
+    {
+      await newsList[i].then(async resp =>
+        {
+        if (resp.length > 0)
+        {
           await dataForm(name[i], resp);
+
           console.log(name[i] + " done");
-        } else {
+        }
+        else
+        {
           console.log(name[i] + ": can't get data from web.");
         }
-      }).catch(err => {
-        console.log(name[i] + ": database query error.");
+      })
+      .catch(err =>
+      {
+        console.log(name[i] + err);
       });
     }
+
+    console.log("爬蟲執行完畢");
     count++;
 	});
-
 });
 
 
-async function dataForm(publisher, resp) {
-  for (let i = 0; i < resp.length; i++) {
-    let data = {
+async function dataForm(publisher, resp)
+{
+  for (let i = 0; i < resp.length; i++)
+  {
+    const data =
+    {
       title: resp[i].title,
       description: resp[i].desc,
       content: resp[i].content,
@@ -83,9 +95,8 @@ async function dataForm(publisher, resp) {
       publisher: publisher
     }
     // save news to db
-    await db.save(data.title, data).then(async function(results) {
-      // nothing to do when insert data ok...
-    }).catch(err => {
+    await db.save(data.title, data).catch(err =>
+    {
       console.log(err);
     });
   }
