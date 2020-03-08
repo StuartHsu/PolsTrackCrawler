@@ -7,32 +7,48 @@ const errorLog = require('../../util/errorRecord.js');
 
 const manager = new NlpManager({ languages: ['zh'], nlu: { log: false } });
 
-fs.readFile('./util/nlp_trained_model/politician.json', async (err, data) =>
+function getEntityContentList()
 {
-  if(err) throw err;
-
-  const country = JSON.parse(data).country;
-  const agency = JSON.parse(data).agency;
-  const politicianInfos = await tagCount.get("politician");
-  const politicianList = [];
-
-  politicianInfos.forEach(politicianInfo =>
+  return new Promise(async function(resolve, reject)
   {
-    politicianList.push(politicianInfo.name);
-  });
+    const data =
+    {
+      politicianList: [],
+      country: [],
+      agency: []
+    };
+    const results = await tagCount.get("politician");
+    const totalResults = results.length;
 
+    for (let i = 0; i < totalResults; i++)
+    {
+      data.politicianList.push(results[i].name);
+    }
+
+    fs.readFile('./util/nlp_trained_model/politician.json', async (err, data) =>
+    {
+      data.country = JSON.parse(data).country;
+      data.agency = JSON.parse(data).agency;
+    });
+
+    resolve(data);
+  });
+}
+
+async function setNLP(entityContentList)
+{
   manager.addNamedEntityText(
     'politician',
     '人物',
     ['zh'],
-    politicianList
+    entityContentList.politicianList
   );
 
   manager.addNamedEntityText(
     'country',
     '國家',
     ['zh'],
-    country
+    entityContentList.country
   );
 
   manager.addNamedEntityText(
@@ -46,7 +62,7 @@ fs.readFile('./util/nlp_trained_model/politician.json', async (err, data) =>
     'agency',
     '機關',
     ['zh'],
-    agency
+    entityContentList.agency
   );
 
   manager.addNamedEntityText(
@@ -80,8 +96,7 @@ fs.readFile('./util/nlp_trained_model/politician.json', async (err, data) =>
 
   manager.addAnswer('zh', 'someone_say', '某人表示');
   manager.addAnswer('zh', 'issue_medical', '醫療議題');
-});
-
+}
 
 module.exports =
 {
@@ -89,6 +104,9 @@ module.exports =
   {
     return new Promise(async function(resolve, reject)
     {
+      const entityContentList = await getEntityContentList();
+      setNLP(entityContentList);
+
       await manager.train();
       manager.save('./util/nlp_trained_model/train.nlp');
 
