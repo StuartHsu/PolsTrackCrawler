@@ -42,7 +42,7 @@ app.listen(3002, async () =>
     period.start = startDayForm(today, 2) + " 00:00";
     period.end = today + " 23:59";
 
-    await adminTag.seg(period.start, period.end)
+    await adminTag.segmentation(period.start, period.end)
     .catch(err =>
       {
         console.log("Seg err");
