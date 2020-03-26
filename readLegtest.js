@@ -1,5 +1,4 @@
 // 立法院歷屆立委
-const request = require('request');
 const govLegislator = require('./crawler/gov/legislator');
 govLegislator.get();
 
